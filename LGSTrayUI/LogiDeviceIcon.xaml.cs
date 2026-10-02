@@ -83,12 +83,17 @@ namespace LGSTrayUI
 
         private Action<TaskbarIcon, LogiDevice> _drawBatteryIcon;
 
+        private readonly int _lowBatteryThreshold;
+        private bool _lowBatteryNotified = false;
+
         public LogiDeviceIcon(LogiDevice device, AppSettings appSettings, UserSettingsWrapper userSettings)
         {
             InitializeComponent();
 
             if (!appSettings.UI.EnableRichToolTips)
                 taskbarIcon.TrayToolTip = null;
+
+            _lowBatteryThreshold = appSettings.UI.LowBatteryThreshold;
 
             AddRef();
 
@@ -99,6 +104,7 @@ namespace LGSTrayUI
             CheckTheme.StaticPropertyChanged += (_, _) => DrawBatteryIcon();
             _drawBatteryIcon = userSettings.NumericDisplay ? BatteryIconDrawing.DrawNumeric : BatteryIconDrawing.DrawIcon;
             DrawBatteryIcon();
+            CheckLowBattery();
         }
 
         private void NotifyIconViewModelPropertyChanged(object? s, PropertyChangedEventArgs e)
@@ -124,12 +130,48 @@ namespace LGSTrayUI
             else if (e.PropertyName is nameof(LogiDevice.BatteryPercentage) or nameof(LogiDevice.PowerSupplyStatus))
             {
                 DrawBatteryIcon();
+                CheckLowBattery();
             }
         }
 
         private void DrawBatteryIcon()
         {
             _ = Dispatcher.BeginInvoke(() => _drawBatteryIcon(taskbarIcon, (LogiDevice)DataContext));
+        }
+
+        private void CheckLowBattery()
+        {
+            _ = Dispatcher.BeginInvoke(() =>
+            {
+                if (disposedValue) { return; }
+
+                var device = (LogiDevice)DataContext;
+
+                // Battery percentage is negative until the first reading arrives
+                bool isLow = (_lowBatteryThreshold > 0)
+                    && (device.BatteryPercentage >= 0)
+                    && (device.BatteryPercentage <= _lowBatteryThreshold)
+                    && (device.PowerSupplyStatus != PowerSupplyStatus.POWER_SUPPLY_STATUS_CHARGING);
+
+                if (!isLow)
+                {
+                    // Re-arm once the device is charged or plugged in
+                    _lowBatteryNotified = false;
+                    return;
+                }
+
+                if (_lowBatteryNotified)
+                {
+                    return;
+                }
+
+                _lowBatteryNotified = true;
+                taskbarIcon.ShowBalloonTip(
+                    "Low battery",
+                    $"{device.DeviceName} is at {device.BatteryPercentage:f0}%, plug it in to charge.",
+                    BalloonIcon.Warning
+                );
+            });
         }
     }
 }

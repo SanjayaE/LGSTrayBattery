@@ -14,6 +14,9 @@ public class AppSettings
 public class UISettings
 {
     public bool EnableRichToolTips { get; set; }
+
+    // Battery percentage at or below which a notification is shown, 0 to disable
+    public int LowBatteryThreshold { get; set; } = 5;
 }
 
 public class HttpServerSettings
