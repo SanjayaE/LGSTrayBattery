@@ -1,6 +1,9 @@
 [UI]
 enableRichToolTips = true
 
+# Show a notification when a selected device drops to or below this battery percentage, 0 to disable
+lowBatteryThreshold = 5
+
 [HTTPServer]
 enabled = true
 addr = "localhost"
